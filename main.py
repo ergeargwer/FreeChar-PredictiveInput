@@ -153,22 +153,26 @@ class AppState:
         self.request_predictions()
 
     def fill_default_predictions(self):
-        # 每一層 3 個候選項，包含詞語與機率
+        # 每一層 4 個候選項，包含詞語與機率
         self.layers[0]["words"] = [
             {"word": "很好", "prob": 0.9},
-            {"word": "不錯", "prob": 0.6},
-            {"word": "一般", "prob": 0.4}
+            {"word": "不錯", "prob": 0.75},
+            {"word": "一般", "prob": 0.5},
+            {"word": "糟糕", "prob": 0.3}
         ]
         self.layers[1]["words"] = [
             {"word": "適合", "prob": 0.8},
-            {"word": "出去", "prob": 0.5},
-            {"word": "睡覺", "prob": 0.3}
+            {"word": "出去", "prob": 0.65},
+            {"word": "睡覺", "prob": 0.5},
+            {"word": "打球", "prob": 0.3}
         ]
         self.layers[2]["words"] = [
-            {"word": "散步", "prob": 0.75},
-            {"word": "玩耍", "prob": 0.5},
-            {"word": "旅遊", "prob": 0.25}
+            {"word": "散步", "prob": 0.8},
+            {"word": "玩耍", "prob": 0.6},
+            {"word": "旅遊", "prob": 0.4},
+            {"word": "看書", "prob": 0.2}
         ]
+
 
     def test_api_connection(self, api_key):
         self.connection_status = "testing"
@@ -221,8 +225,9 @@ class AppState:
                 prev_angle = self.layers[i]["current_angle"]
                 self.layers[i]["current_angle"] += diff * 0.16
                 
-                # 計算是否有跨越 120 度分割線的卡嗒點
-                step = 120.0
+                # 計算是否有跨越分割線的卡嗒點 (依據字詞數動態計算角度)
+                words_count = len(self.layers[i]["words"])
+                step = 360.0 / words_count if words_count else 120.0
                 if int(prev_angle / step) != int(self.layers[i]["current_angle"] / step):
                     if sound_click:
                         sound_click.play()
@@ -235,11 +240,13 @@ class AppState:
             self.debounce_triggered = True
 
     def rotate_layer(self, layer_idx, direction):
-        # 3個選項在 0, 120, 240。旋轉 120 度可切換選項。
+        # 依據目前該層字詞數量動態計算旋轉角度
+        words_count = len(self.layers[layer_idx]["words"])
+        step = 360.0 / words_count if words_count else 120.0
         if direction == "up":
-            self.layers[layer_idx]["target_angle"] += 120.0
+            self.layers[layer_idx]["target_angle"] += step
         elif direction == "down":
-            self.layers[layer_idx]["target_angle"] -= 120.0
+            self.layers[layer_idx]["target_angle"] -= step
 
     def get_selected_word(self, layer_idx):
         layer = self.layers[layer_idx]
@@ -247,17 +254,14 @@ class AppState:
         if not words:
             return ""
             
-        # 計算哪個單字最靠近 270 度
+        # 計算哪個單字最靠近 270 度 (指標選定位置)
         current_angle = layer["target_angle"] % 360
-        # 選項初始分配角度為：[0, 120, 240]，對應索引 0, 1, 2
-        # 相對的，我們找出哪一個項目旋轉後對齊 270 度。
-        # 角度公式：WordAngle = (InitialAngle + current_angle - 270) % 360
-        # 我們直接看當前 target_angle 與 270 的差值來推算選中了哪一個索引。
-        # 或者我們用精準的幾何對齊：
+        words_count = len(words)
+        step = 360.0 / words_count if words_count else 120.0
         best_idx = 0
         min_diff = 999.0
-        for idx in range(len(words)):
-            init_angle = idx * 120.0
+        for idx in range(words_count):
+            init_angle = idx * step
             word_angle = (init_angle + layer["current_angle"]) % 360
             diff = abs((word_angle - 270 + 180) % 360 - 180)
             if diff < min_diff:
@@ -488,8 +492,10 @@ def draw_rainbow_rings(surf, state, cursor_x, cursor_y):
             word = item["word"]
             prob = item["prob"]
             
-            # 計算這個詞目前的角度位置 (弧度)
-            init_angle = idx * 120.0
+            # 計算這個詞目前的角度位置 (依該層總詞數動態均分 360 度)
+            words_count = len(words)
+            step = 360.0 / words_count if words_count else 120.0
+            init_angle = idx * step
             total_angle = (init_angle + layer_data["current_angle"]) % 360
             rad = math.radians(total_angle)
             
