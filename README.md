@@ -1,5 +1,7 @@
 # 🧠 FreeChar AI 彩虹圓環預測輸入法 (FreeChar AI Predictive Input)
 
+![彩虹同心圓字圈概念設計](concept_design.png)
+
 一個專為 PC 環境設計的創新 AI 預測輸入法原型，包含 **Web 網頁端** 與 **Python Pygame 桌面端** 兩種版本，旨在探索非傳統的文字聯想互動體驗。
 
 ---
