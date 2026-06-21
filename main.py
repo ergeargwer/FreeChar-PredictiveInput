@@ -47,6 +47,27 @@ FONT_SUBTITLE = get_font(16)
 FONT_TEXT = get_font(24)
 FONT_UI = get_font(14)
 FONT_RING_WORD = get_font(18, bold=True)
+FONT_RING_0 = get_font(24, bold=True)
+FONT_RING_1 = get_font(20, bold=True)
+FONT_RING_2 = get_font(16, bold=True)
+
+def draw_text_with_glow(surf, text, font, pos, color, alpha):
+    # 1. 繪製發光底影 (在 pos 四周稍微偏移繪製半透明的文字，實現發光感)
+    glow_alpha = int(alpha * 0.35)
+    if glow_alpha > 0:
+        glow_color = color[:3] + (glow_alpha,)
+        glow_surf = font.render(text, True, glow_color)
+        glow_rect = glow_surf.get_rect(center=pos)
+        for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            surf.blit(glow_surf, (glow_rect.x + dx, glow_rect.y + dy))
+            
+    # 2. 繪製主文字
+    main_color = (255, 255, 255)
+    main_surf = font.render(text, True, main_color)
+    main_surf.set_alpha(alpha)
+    main_rect = main_surf.get_rect(center=pos)
+    surf.blit(main_surf, main_rect)
+
 
 # 顏色定義 (現代暗色系風格)
 BG_COLOR = (13, 17, 23)        # 深灰藍
@@ -440,21 +461,28 @@ def draw_rainbow_rings(surf, state, cursor_x, cursor_y):
         
         # 焦點層突出效果
         is_focused = (state.focus_layer == layer_idx)
-        line_width = 3 if is_focused else 1
         
         # 取得對應的主題層顏色
         base_color = theme[f"layer{layer_idx+1}"]
         
-        # 計算整圈的平均透明度，做一個淡色同心環底圈
-        ring_alpha = int(40 * layer_base_factor * state.global_alpha)
-        ring_color = base_color + (ring_alpha,)
+        # 1. 繪製多層底圈（增加厚度感與霓虹發光效果）
+        for k in range(5):
+            glow_radius = radius + (k - 2) * 3  # 在 radius 附近擴散 [-6, -3, 0, 3, 6]
+            glow_alpha = int((50 - k * 8) * layer_base_factor * state.global_alpha)
+            glow_alpha = max(5, min(255, glow_alpha))
+            glow_color = base_color + (glow_alpha,)
+            
+            glow_width = 3 if k == 2 else 1
+            if is_focused:
+                glow_width += 1
+                
+            shape_surf = pygame.Surface((glow_radius * 2 + 10, glow_radius * 2 + 10), pygame.SRCALPHA)
+            pygame.draw.circle(shape_surf, glow_color, (glow_radius + 5, glow_radius + 5), glow_radius, glow_width)
+            surf.blit(shape_surf, (center_x - glow_radius - 5, center_y - glow_radius - 5))
         
-        # 繪製半透明的同心背景圓環
-        shape_surf = pygame.Surface((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
-        pygame.draw.circle(shape_surf, ring_color, (radius + 5, radius + 5), radius, line_width)
-        surf.blit(shape_surf, (center_x - radius - 5, center_y - radius - 5))
+        # 2. 繪製圓環上的預測字詞 (依層數使用不同大小字體與發光效果)
+        font = [FONT_RING_0, FONT_RING_1, FONT_RING_2][layer_idx]
         
-        # 繪製圓環上的預測字詞 (均勻分佈於三個角度)
         for idx in range(len(words)):
             item = words[idx]
             word = item["word"]
@@ -471,41 +499,37 @@ def draw_rainbow_rings(surf, state, cursor_x, cursor_y):
             
             # 根據機率 prob 計算透明度
             alpha_prob = int(255 * prob * layer_base_factor * state.global_alpha)
-            # 確保不會全透明看不見
             alpha_prob = max(35, min(255, alpha_prob))
             
-            # 文字與卡片渲染
-            text_color_alpha = base_color + (alpha_prob,)
-            
-            # 若此詞恰巧在選定焦點(頂部對齊 270 度，即 rad 接近 -PI/2)
-            # 我們給予額外的高亮與發光外圈
+            # 若此詞選定焦點(頂部對齊 270 度)
             angle_diff = abs((total_angle - 270 + 180) % 360 - 180)
             is_pointing = (angle_diff < 15.0) and is_focused
             
-            # 繪製詞彙膠囊背景
-            word_surf = FONT_RING_WORD.render(word, True, (255, 255, 255))
-            pad_w, pad_h = 14, 8
-            bg_w = word_surf.get_width() + pad_w
-            bg_h = word_surf.get_height() + pad_h
+            # 動態依據字型大小與字長計算膠囊背景尺寸
+            word_w, word_h = font.size(word)
+            pad_w, pad_h = 16, 10
+            bg_w = word_w + pad_w
+            bg_h = word_h + pad_h
             
             card = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
             
             # 卡片背景透明度與發光效果
-            bg_alpha = int(180 * prob * state.global_alpha)
+            bg_alpha = int(140 * prob * state.global_alpha)
             if is_pointing:
-                bg_alpha = min(255, bg_alpha + 60)
-                # 高亮金色邊框
+                bg_alpha = min(255, bg_alpha + 70)
+                # 金色高亮邊框
                 pygame.draw.rect(card, (255, 215, 0, bg_alpha), card.get_rect(), border_radius=6)
                 pygame.draw.rect(card, base_color + (bg_alpha,), card.get_rect().inflate(-2, -2), border_radius=5)
             else:
                 pygame.draw.rect(card, (22, 27, 34, bg_alpha), card.get_rect(), border_radius=6)
-                pygame.draw.rect(card, text_color_alpha, card.get_rect(), 1, border_radius=6)
+                pygame.draw.rect(card, base_color + (alpha_prob,), card.get_rect(), 1, border_radius=6)
                 
-            # 將文字寫入卡片
-            card.blit(word_surf, (pad_w//2, pad_h//2))
+            # 在卡片內部繪製發光文字
+            draw_text_with_glow(card, word, font, (bg_w // 2, bg_h // 2), base_color, alpha_prob)
             
             # 疊加到主畫面
             surf.blit(card, (word_x - bg_w//2, word_y - bg_h//2))
+
             
             # 繪製指向頂端選取位置的箭頭或指標 (僅在目前焦點層)
             if is_focused:
