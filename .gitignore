@@ -1,0 +1,14 @@
+# API Keys and sensitive information
+key.txt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Auto-generated sound assets
+gear_click.wav
+bell_ring.wav
+
+# Local environment/IDE config
+.vscode/
+.idea/

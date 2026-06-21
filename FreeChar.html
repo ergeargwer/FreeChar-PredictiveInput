@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenRouter 智能預測輸入法</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 36px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 16px;
+        }
+
+        .api-setup {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .setup-title {
+            color: #FFD700;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .api-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .api-key-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .api-key-input:focus {
+            border-color: #FFD700;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .api-key-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .test-btn, .save-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .test-btn {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+        }
+
+        .save-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .test-btn:hover, .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-disconnected {
+            background: #f44336;
+            color: white;
+        }
+
+        .status-connected {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .status-testing {
+            background: #FF9800;
+            color: white;
+        }
+
+        .input-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .input-title {
+            color: #FFD700;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 18px;
+            outline: none;
+            transition: all 0.3s ease;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .text-input:focus {
+            border-color: #FFD700;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .text-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .prediction-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .prediction-title {
+            color: #FFD700;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .prediction-stats {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .predictions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .prediction-item {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            color: white;
+            font-weight: 500;
+        }
+
+        .prediction-item:hover {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: #FFD700;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .prediction-item.selected {
+            background: rgba(255, 215, 0, 0.3);
+            border-color: #FFD700;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #FF6B6B, #FFD700, #4ECDC4);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .loading {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+            padding: 20px;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #FFD700;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .settings-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .setting-label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .setting-input {
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .setting-input:focus {
+            border-color: #FFD700;
+        }
+
+        .error-message {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            color: #ffcdd2;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .success-message {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            color: #c8e6c9;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .usage-info {
+            background: rgba(33, 150, 243, 0.2);
+            border: 1px solid rgba(33, 150, 243, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            color: #bbdefb;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🧠 OpenRouter 智能預測輸入法</div>
+            <div class="subtitle">基於 OpenRouter API 的多模型中文文字預測系統</div>
+        </div>
+
+        <div class="usage-info">
+            <strong>💡 使用說明：</strong>
+            <ul style="margin-top: 8px; padding-left: 20px;">
+                <li>首先在下方輸入您的 OpenRouter API Key，或點擊「匯入 key.txt」載入本地金鑰檔案</li>
+                <li>系統預設使用最新的 <strong>Gemini 2.5 Flash</strong> 模型進行快速預測，亦可自由切換其他模型</li>
+                <li>在文字輸入框中輸入部分文字，系統會自動預測可能的後續文字</li>
+                <li>點擊預測結果可自動添加到輸入框</li>
+                <li>支援調整預測數量、創意程度和回應長度</li>
+            </ul>
+        </div>
+
+        <div class="api-setup">
+            <div class="setup-title">
+                🔑 API 設定
+                <span id="connectionStatus" class="status-indicator status-disconnected">未連接</span>
+            </div>
+            
+            <div class="api-input-group">
+                <input type="password" id="apiKey" class="api-key-input" placeholder="請輸入您的 OpenRouter API Key (sk-or-...)" />
+                <input type="file" id="keyFileInput" accept=".txt" style="display: none;" onchange="importKeyFile(event)" />
+                <button class="test-btn" style="background: linear-gradient(45deg, #9b59b6, #8e44ad);" onclick="document.getElementById('keyFileInput').click()">匯入 key.txt</button>
+                <button class="test-btn" onclick="testConnection()">測試連接</button>
+                <button class="save-btn" onclick="saveApiKey()">保存</button>
+            </div>
+            
+            <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6); margin-top: 10px;">
+                📌 注意：在此演示環境中，API Key 僅在當前會話中有效。
+                <br>🔗 獲取 API Key: <a href="https://openrouter.ai" target="_blank" style="color: #FFD700;">https://openrouter.ai</a>
+            </div>
+
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+        </div>
+
+        <div class="settings-section">
+            <div class="setup-title">⚙️ 預測設定</div>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <label class="setting-label">選擇 LLM 模型</label>
+                    <select id="modelSelect" class="setting-input">
+                        <option value="google/gemini-2.5-flash" selected>Gemini 2.5 Flash (推薦)</option>
+                        <option value="deepseek/deepseek-chat">DeepSeek V3</option>
+                        <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (免費)</option>
+                        <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">預測數量</label>
+                    <select id="predictionCount" class="setting-input">
+                        <option value="3">3個預測</option>
+                        <option value="5" selected>5個預測</option>
+                        <option value="8">8個預測</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">創意程度</label>
+                    <select id="temperature" class="setting-input">
+                        <option value="0.1">保守 (0.1)</option>
+                        <option value="0.3" selected>適中 (0.3)</option>
+                        <option value="0.7">創意 (0.7)</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">回應長度</label>
+                    <select id="maxTokens" class="setting-input">
+                        <option value="8">極短 (8字)</option>
+                        <option value="12" selected>短 (12字)</option>
+                        <option value="20">中 (20字)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <div class="input-title">📝 文字輸入</div>
+            <textarea 
+                id="textInput" 
+                class="text-input" 
+                placeholder="請在此輸入您要預測的文字..."
+                oninput="handleInputChange()"
+                onkeydown="handleKeyDown(event)"
+            ></textarea>
+        </div>
+
+        <div class="prediction-section">
+            <div class="prediction-title">
+                🎯 智能預測
+                <span class="prediction-stats" id="predictionStats">準備就緒</span>
+            </div>
+            <div id="predictionsContainer" class="predictions-grid">
+                <div style="text-align: center; color: rgba(255, 255, 255, 0.6); padding: 40px; grid-column: 1 / -1;">
+                    請輸入文字開始預測...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class OpenRouterPredictor {
+            constructor() {
+                this.apiKey = '';
+                this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+                this.isConnected = false;
+                this.requestCount = 0;
+                this.successCount = 0;
+                this.cache = new Map(); // 添加快取
+                this.lastRequestTime = 0;
+                this.minRequestInterval = 800; // 最小請求間隔(毫秒)
+                this.settings = {
+                    model: 'google/gemini-2.5-flash',
+                    predictionCount: '5',
+                    temperature: '0.3',
+                    maxTokens: '20'
+                };
+                
+                this.loadSavedApiKey();
+                this.setupEventListeners();
+            }
+
+            loadSavedApiKey() {
+                if (this.apiKey) {
+                    const apiKeyInput = document.getElementById('apiKey');
+                    if (apiKeyInput) {
+                        apiKeyInput.value = this.apiKey;
+                        this.updateConnectionStatus('connected');
+                    }
+                }
+            }
+
+            setupEventListeners() {
+                // 設定變更監聽器
+                setTimeout(() => {
+                    ['modelSelect', 'predictionCount', 'temperature', 'maxTokens'].forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.addEventListener('change', () => {
+                                this.saveSettings();
+                            });
+                        }
+                    });
+                    this.loadSettings();
+                    this.tryAutoLoadKey();
+                }, 100);
+            }
+
+            saveSettings() {
+                this.settings = {
+                    model: document.getElementById('modelSelect')?.value || 'google/gemini-2.5-flash',
+                    predictionCount: document.getElementById('predictionCount')?.value || '5',
+                    temperature: document.getElementById('temperature')?.value || '0.3',
+                    maxTokens: document.getElementById('maxTokens')?.value || '20'
+                };
+            }
+
+            loadSettings() {
+                const modelSelectEl = document.getElementById('modelSelect');
+                const predictionCountEl = document.getElementById('predictionCount');
+                const temperatureEl = document.getElementById('temperature');
+                const maxTokensEl = document.getElementById('maxTokens');
+                
+                if (modelSelectEl) modelSelectEl.value = this.settings.model;
+                if (predictionCountEl) predictionCountEl.value = this.settings.predictionCount;
+                if (temperatureEl) temperatureEl.value = this.settings.temperature;
+                if (maxTokensEl) maxTokensEl.value = this.settings.maxTokens;
+            }
+
+            async tryAutoLoadKey() {
+                try {
+                    const response = await fetch('key.txt');
+                    if (response.ok) {
+                        const text = await response.text();
+                        const key = this.parseKeyFromText(text);
+                        if (key) {
+                            const apiKeyInput = document.getElementById('apiKey');
+                            if (apiKeyInput) {
+                                apiKeyInput.value = key;
+                                this.apiKey = key;
+                                this.showMessage('已自動從同目錄載入 key.txt 中的金鑰，正在測試連接...', 'success');
+                                this.testConnection();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('無法自動載入 key.txt (通常是因為 file:// 協定的 CORS 限制)：', e);
+                }
+            }
+
+            parseKeyFromText(text) {
+                const lines = text.split(/\r?\n/).map(line => line.trim());
+                for (const line of lines) {
+                    if (line.startsWith('sk-or-')) {
+                        return line;
+                    }
+                }
+                for (let i = 0; i < lines.length - 1; i++) {
+                    if (lines[i].toLowerCase().includes('openrouter')) {
+                        if (lines[i+1] && lines[i+1].length > 15) {
+                            return lines[i+1];
+                        }
+                    }
+                }
+                return null;
+            }
+
+            updateConnectionStatus(status) {
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.className = `status-indicator status-${status}`;
+                
+                switch(status) {
+                    case 'connected':
+                        statusElement.textContent = '已連接';
+                        this.isConnected = true;
+                        break;
+                    case 'testing':
+                        statusElement.textContent = '測試中...';
+                        break;
+                    case 'disconnected':
+                        statusElement.textContent = '未連接';
+                        this.isConnected = false;
+                        break;
+                    case 'error':
+                        statusElement.textContent = '連接錯誤';
+                        this.isConnected = false;
+                        break;
+                }
+            }
+
+            showMessage(message, type = 'error') {
+                const errorEl = document.getElementById('errorMessage');
+                const successEl = document.getElementById('successMessage');
+                
+                errorEl.style.display = 'none';
+                successEl.style.display = 'none';
+                
+                if (type === 'success') {
+                    successEl.textContent = message;
+                    successEl.style.display = 'block';
+                } else {
+                    errorEl.textContent = message;
+                    errorEl.style.display = 'block';
+                }
+                
+                setTimeout(() => {
+                    errorEl.style.display = 'none';
+                    successEl.style.display = 'none';
+                }, 4000);
+            }
+
+            async testConnection() {
+                const apiKey = document.getElementById('apiKey').value.trim();
+                
+                if (!apiKey) {
+                    this.showMessage('請輸入 API Key');
+                    return false;
+                }
+
+                this.updateConnectionStatus('testing');
+
+                try {
+                    const currentModel = document.getElementById('modelSelect')?.value || 'google/gemini-2.5-flash';
+                    const response = await fetch(this.baseUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`,
+                            'HTTP-Referer': window.location.href,
+                            'X-Title': 'FreeChar Predictor'
+                        },
+                        body: JSON.stringify({
+                            model: currentModel,
+                            messages: [
+                                {
+                                    role: 'system',
+                                    content: 'You are a helpful assistant.'
+                                },
+                                {
+                                    role: 'user',
+                                    content: 'Hello!'
+                                }
+                            ],
+                            max_tokens: 10,
+                            stream: false
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('API測試成功:', data);
+                        this.updateConnectionStatus('connected');
+                        const modelName = document.getElementById('modelSelect')?.options[document.getElementById('modelSelect').selectedIndex]?.text || currentModel;
+                        this.showMessage(`API 連接測試成功！${modelName} 已就緒`, 'success');
+                        this.apiKey = apiKey;
+                        return true;
+                    } else {
+                        const error = await response.json();
+                        throw new Error(error.error?.message || `HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    this.updateConnectionStatus('error');
+                    this.showMessage(`連接失敗: ${error.message}`);
+                    return false;
+                }
+            }
+
+            saveApiKey() {
+                const apiKey = document.getElementById('apiKey').value.trim();
+                if (!apiKey) {
+                    this.showMessage('請輸入 API Key');
+                    return;
+                }
+
+                this.apiKey = apiKey;
+                this.showMessage('API Key 已保存（本次會話有效）', 'success');
+            }
+
+            async predict(inputText) {
+                if (!this.isConnected || !this.apiKey) {
+                    throw new Error('請先設定並測試 API Key');
+                }
+
+                const cacheKey = inputText.trim().toLowerCase();
+                if (this.cache.has(cacheKey)) {
+                    console.log('使用快取結果');
+                    return this.cache.get(cacheKey);
+                }
+
+                const now = Date.now();
+                const timeSinceLastRequest = now - this.lastRequestTime;
+                if (timeSinceLastRequest < this.minRequestInterval) {
+                    const waitTime = this.minRequestInterval - timeSinceLastRequest;
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+
+                const settings = {
+                    predictionCount: parseInt(document.getElementById('predictionCount').value),
+                    temperature: parseFloat(document.getElementById('temperature').value),
+                    maxTokens: Math.min(15, parseInt(document.getElementById('maxTokens').value)) // 限制最大token數
+                };
+
+                const systemPrompt = `你是中文輸入法助手。根據輸入預測${settings.predictionCount}個常用後續詞語，每行一個，無編號無解釋。`;
+                const userPrompt = inputText;
+
+                this.requestCount++;
+                this.lastRequestTime = Date.now();
+                
+                try {
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('請求超時')), 5000)
+                    );
+
+                    const fetchPromise = fetch(this.baseUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.apiKey}`,
+                            'HTTP-Referer': window.location.href,
+                            'X-Title': 'FreeChar Predictor'
+                        },
+                        body: JSON.stringify({
+                            model: this.settings.model,
+                            messages: [
+                                { role: 'system', content: systemPrompt },
+                                { role: 'user', content: userPrompt }
+                            ],
+                            max_tokens: settings.maxTokens,
+                            temperature: settings.temperature,
+                            stream: false,
+                            top_p: 0.8,
+                            frequency_penalty: 0.1
+                        })
+                    });
+
+                    const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error?.message || `HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const content = data.choices[0].message.content.trim();
+                    
+                    const predictions = content.split(/[\n\r]+/)
+                        .map(line => line.trim().replace(/^\d+\.?\s*/, ''))
+                        .filter(line => line.length > 0 && line.length < 10)
+                        .slice(0, settings.predictionCount);
+
+                    this.cache.set(cacheKey, predictions);
+                    
+                    if (this.cache.size > 100) {
+                        const firstKey = this.cache.keys().next().value;
+                        this.cache.delete(firstKey);
+                    }
+
+                    this.successCount++;
+                    return predictions;
+
+                } catch (error) {
+                    console.error('預測錯誤:', error);
+                    throw error;
+                }
+            }
+
+            updateStats() {
+                const stats = document.getElementById('predictionStats');
+                const successRate = this.requestCount > 0 ? 
+                    Math.round((this.successCount / this.requestCount) * 100) : 0;
+                
+                stats.textContent = `請求: ${this.requestCount} | 成功率: ${successRate}%`;
+            }
+        }
+
+        let predictor;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                predictor = new OpenRouterPredictor();
+                console.log('OpenRouter 智能預測輸入法已載入');
+            }, 100);
+        });
+
+        function testConnection() {
+            if (predictor) {
+                predictor.testConnection();
+            } else {
+                alert('系統尚未初始化完成，請稍後再試');
+            }
+        }
+
+        function saveApiKey() {
+            if (predictor) {
+                predictor.saveApiKey();
+            } else {
+                alert('系統尚未初始化完成，請稍後再試');
+            }
+        }
+
+        let predictionTimeout;
+
+        function handleInputChange() {
+            if (!predictor) return;
+            
+            const input = document.getElementById('textInput').value;
+            
+            // 清除之前的定時器
+            if (predictionTimeout) {
+                clearTimeout(predictionTimeout);
+            }
+
+            // 如果輸入為空，清空預測
+            if (!input.trim()) {
+                showEmptyState();
+                return;
+            }
+
+            // 增加延遲到1000ms，減少API調用頻率
+            predictionTimeout = setTimeout(() => {
+                performPrediction(input);
+            }, 1000);
+        }
+
+        function handleKeyDown(event) {
+            if (!predictor) return;
+            
+            // Enter鍵觸發預測
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                const input = document.getElementById('textInput').value;
+                if (input.trim()) {
+                    performPrediction(input);
+                }
+            }
+        }
+
+        async function performPrediction(inputText) {
+            if (!predictor) return;
+            
+            const container = document.getElementById('predictionsContainer');
+            const startTime = Date.now();
+            
+            // 顯示載入狀態
+            container.innerHTML = '<div class="loading">AI思考中...</div>';
+
+            try {
+                const predictions = await predictor.predict(inputText);
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                displayPredictions(predictions);
+                predictor.updateStats();
+                
+                // 顯示響應時間
+                const statsElement = document.getElementById('predictionStats');
+                if (statsElement) {
+                    const successRate = predictor.requestCount > 0 ? 
+                        Math.round((predictor.successCount / predictor.requestCount) * 100) : 0;
+                    statsElement.textContent = `請求: ${predictor.requestCount} | 成功率: ${successRate}% | 響應時間: ${responseTime}ms`;
+                }
+                
+            } catch (error) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #ffcdd2; padding: 20px; grid-column: 1 / -1;">
+                        <strong>預測失敗:</strong><br>
+                        ${error.message}
+                        <br><small>建議：檢查網路連接或稍後重試</small>
+                    </div>
+                `;
+            }
+        }
+
+        function displayPredictions(predictions) {
+            const container = document.getElementById('predictionsContainer');
+            
+            if (!predictions || predictions.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: rgba(255, 255, 255, 0.6); padding: 20px; grid-column: 1 / -1;">
+                        未能獲取預測結果
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = predictions.map((prediction, index) => {
+                const confidence = Math.max(10, 90 - index * 15); // 模擬信心度
+                return `
+                    <div class="prediction-item" onclick="selectPrediction('${prediction}')">
+                        ${prediction}
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${confidence}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectPrediction(prediction) {
+            const textInput = document.getElementById('textInput');
+            textInput.value += prediction;
+            textInput.focus();
+            
+            // 觸發新的預測
+            handleInputChange();
+        }
+
+        function showEmptyState() {
+            const container = document.getElementById('predictionsContainer');
+            container.innerHTML = `
+                <div style="text-align: center; color: rgba(255, 255, 255, 0.6); padding: 40px; grid-column: 1 / -1;">
+                    請輸入文字開始預測...
+                </div>
+            `;
+        }
+
+        function importKeyFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                if (predictor) {
+                    const key = predictor.parseKeyFromText(text);
+                    if (key) {
+                        const apiKeyInput = document.getElementById('apiKey');
+                        if (apiKeyInput) {
+                            apiKeyInput.value = key;
+                            predictor.apiKey = key;
+                            predictor.showMessage('已從檔案成功解析金鑰，正在測試連接...', 'success');
+                            predictor.testConnection();
+                        }
+                    } else {
+                        predictor.showMessage('在檔案中找不到適用的 OpenRouter API 金鑰 (以 sk-or- 開頭，或標記在 openrouter 下方)');
+                    }
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
